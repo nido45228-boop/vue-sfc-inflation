@@ -5,14 +5,17 @@ on:
     branches:
       - main
 
+# 允許同一時間只有一個部署工作流在執行，避免衝突
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pages: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,6 +24,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm' # 加上快取，可以加快以後安裝套件的速度
 
       - name: Install dependencies
         run: npm ci
@@ -29,10 +33,10 @@ jobs:
         run: npm run build
 
       - name: Configure Pages
-        uses: actions/configure-pages@v2
+        uses: actions/configure-pages@v5 # 升級至 v5
 
       - name: Upload build artifact for Pages
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3 # 升級至 v3 (解決錯誤的核心)
         with:
           path: ./dist
 
@@ -42,6 +46,11 @@ jobs:
     needs: build
     permissions:
       pages: write
+      id-token: write # 轉移到 deploy job 需要的權限
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v1
+        id: deployment
+        uses: actions/deploy-pages@v4 # 升級至 v4
